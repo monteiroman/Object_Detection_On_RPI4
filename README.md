@@ -1,0 +1,1 @@
+# Object detection with opencv and tf_lite on Raspberry pi4 
