@@ -1,9 +1,4 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import argparse
-import io
 import re
 import time
 import screeninfo
@@ -13,6 +8,7 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
+from print_log import PrintLog
 
 from tflite_runtime.interpreter import Interpreter
 import cv2
@@ -121,12 +117,15 @@ def main():
         '--input_stream', help='Input video stream', required=False, default=0)
     args = parser.parse_args()
 
+    # ----->> TFLite interpreter definitions. <<-----
     labels = load_labels(args.labels)
     interpreter = Interpreter(args.model, num_threads=3)
     interpreter.allocate_tensors()
     shape = interpreter.get_input_details()[0]['shape']
     print("NN Shape:", shape)
     _, input_height, input_width, _ = shape
+
+    # ----->> OpenCv objects definitions <<-----
     cap = cv2.VideoCapture()
     cap.open(args.input_stream)
     window_name = "window"
@@ -150,6 +149,10 @@ def main():
     # Get frames size
     stream_input_height, stream_input_width = frame.shape[:2]
 
+    # ----->> Log print object <<-----
+    print_out_data = PrintLog.PrintLog(TEMP_FILE_PATH, args.model, args.threshold, stream_input_width, 
+                                                                                    stream_input_height, width, height)
+
     while True:
         # Capture frame-by-frame
         ret, frame = cap.read()
@@ -171,36 +174,7 @@ def main():
                          stream_input_width, stream_input_height)
         elapsed_ms = (time.monotonic() - start_time) * 1000
 
-        # ----->> Log prints <<-----
-        if True:
-            os.system('clear')
-            print(
-                '___ [ RPI Object detection with TFLite ] _________________________')
-            print()
-            print("Used model:\t", Path(args.model).name)
-            print()
-            print('Process FPS:\t', '{0:.2f}'.format(1/(elapsed_ms/1000)))
-            with open(TEMP_FILE_PATH) as fp:
-                line = fp.readline()
-                line = int(line) / 1000
-
-                print("CPU Temp:\t", line, "°C")
-            print()
-            print("Input size:")
-            print("\twidth:\t", stream_input_width)
-            print("\theight:\t", stream_input_height)
-            print()
-            print("Output size:")
-            print("\twidth:\t", width)
-            print("\theight:\t", height)
-            print()
-            if len(results):
-                obj_count = len(results)
-            else:
-                obj_count = 0
-            print("Detected objects:", obj_count)
-            print("Threshold:\t", args.threshold)
-            print()
+        print_out_data.print_log(results, elapsed_ms)
 
         # Display the resulting frame
         frame = cv2.resize(frame, (width, height))
